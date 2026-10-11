@@ -315,4 +315,6 @@ def chat_endpoint(request: ChatRequest):
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # Railway/Render inject PORT; locally fall back to 8000 with auto-reload
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload="PORT" not in os.environ)
