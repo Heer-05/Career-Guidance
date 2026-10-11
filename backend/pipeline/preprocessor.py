@@ -24,21 +24,14 @@ Why this order:
 
 import re
 import unicodedata
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
+from spacy.lang.en.stop_words import STOP_WORDS as SPACY_STOP_WORDS
 
-# Download required NLTK resources (safe to call multiple times)
-nltk.download('punkt', quiet=True)
-nltk.download('punkt_tab', quiet=True)
-nltk.download('stopwords', quiet=True)
-nltk.download('wordnet', quiet=True)
-nltk.download('averaged_perceptron_tagger', quiet=True)
+# Reuse the spaCy model already loaded by the entity parser instead of NLTK:
+# NLTK's WordNet data alone costs ~125 MB of RAM, which pushed the server past
+# the 512 MB limit on Render's free tier.
+from pipeline.parser import nlp
 
-# Initialize once at module level for performance
-lemmatizer = WordNetLemmatizer()
-STOP_WORDS = set(stopwords.words('english'))
+STOP_WORDS = set(SPACY_STOP_WORDS)
 
 # Additional domain-specific stopwords to remove from resumes
 RESUME_STOPWORDS = {
@@ -91,10 +84,10 @@ def stage_normalize_whitespace(text: str) -> str:
 def stage_tokenize(text: str) -> list:
     """
     Stage 5: Tokenize the cleaned text into individual word tokens.
-    Uses NLTK's word_tokenize which handles contractions and punctuation better
+    Uses spaCy's tokenizer which handles contractions and punctuation better
     than a simple split().
     """
-    tokens = word_tokenize(text)
+    tokens = [token.text for token in nlp.tokenizer(text)]
     # Keep only tokens that are at least 2 characters (removes lone chars and noise)
     tokens = [t for t in tokens if len(t) >= 2]
     return tokens
@@ -110,7 +103,9 @@ def stage_lemmatize(tokens: list) -> list:
     Stage 7: Lemmatize tokens — reduce words to their base form.
     Examples: 'managing' -> 'manage', 'databases' -> 'database', 'running' -> 'run'
     """
-    return [lemmatizer.lemmatize(token) for token in tokens]
+    doc = nlp(" ".join(tokens), disable=["parser", "ner"])
+    # A blank spaCy model (en_core_web_sm missing) yields empty lemmas — keep the token then
+    return [token.lemma_ or token.text for token in doc]
 
 
 # ---------- Main Pipeline Function ----------

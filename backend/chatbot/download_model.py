@@ -6,7 +6,6 @@ Run this once on Render during the build step.
 """
 
 import os
-import gdown
 from pathlib import Path
 
 MODEL_DIR = Path(__file__).parent / "intent_classifier"
@@ -16,6 +15,13 @@ FILE_ID = "1XbvQtB0m87EMlQ3AWO3QP3Z-88yPtdkT"  # paste your file ID here
 def download_model():
     if MODEL_FILE.exists():
         print("Model already exists, skipping download.")
+        return
+    try:
+        import gdown
+    except ImportError:
+        # torch/transformers are not installed on the free-tier deploy, so the
+        # chatbot uses its keyword fallback and the model would never be loaded
+        print("gdown not installed, skipping model download (chatbot uses keyword fallback).")
         return
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     print("Downloading DistilBERT model from Google Drive...")
